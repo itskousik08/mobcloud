@@ -49,7 +49,7 @@ cp backend/.env.example backend/.env
 ollama serve
 
 # 5. Pull an AI model
-ollama pull llama3
+ollama pull glm-5:cloud
 
 # 6. Start Mobclowd
 npm run dev
