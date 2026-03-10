@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, StopCircle, Trash2, Sparkles, Code, Globe, Layers,
-  FileCode, ChevronRight,
+  FileCode, ChevronRight, ImagePlus, X, CheckCircle2, Loader2,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -48,6 +48,58 @@ const QUICK_CATEGORIES = [
   },
 ];
 
+// ── Agent Status Card ─────────────────────────────
+function AgentCard({ agent }) {
+  const isComplete = agent.status === 'complete';
+  const isWorking = agent.status === 'working' || agent.status === 'writing' || agent.status === 'reviewing';
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+      borderRadius: 10, background: isComplete ? 'rgba(16,185,129,0.06)' : 'rgba(99,102,241,0.06)',
+      border: `1px solid ${isComplete ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)'}`,
+      transition: 'all 0.3s ease',
+    }}>
+      <span style={{ fontSize: 18, flexShrink: 0 }}>{agent.icon}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 1 }}>
+          {agent.name}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {agent.description}
+        </div>
+      </div>
+      <div style={{ flexShrink: 0 }}>
+        {isComplete ? (
+          <CheckCircle2 size={16} style={{ color: '#10b981' }} />
+        ) : isWorking ? (
+          <Loader2 size={16} style={{ color: '#818cf8', animation: 'spin 1s linear infinite' }} />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ── Agent Progress Panel ────────────────────────────
+function AgentProgress({ agents }) {
+  if (!agents || agents.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{
+        fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6,
+        textTransform: 'uppercase', letterSpacing: '0.05em',
+      }}>
+        AI Agents Working
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {agents.map(agent => (
+          <AgentCard key={agent.id} agent={agent} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── User message bubble ─────────────────────────────
 function UserMsg({ msg }) {
   return (
@@ -58,6 +110,11 @@ function UserMsg({ msg }) {
         border: '1px solid rgba(99,102,241,0.25)',
         fontSize: 13, lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap',
       }}>
+        {msg.imagePreview && (
+          <img src={msg.imagePreview} alt="Uploaded" style={{
+            maxWidth: '100%', maxHeight: 150, borderRadius: 8, marginBottom: 8, display: 'block',
+          }} />
+        )}
         {msg.content}
       </div>
     </div>
@@ -74,7 +131,6 @@ function AIMsg({ msg }) {
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-        {/* Avatar */}
         <div style={{
           width: 26, height: 26, borderRadius: 8, flexShrink: 0, marginTop: 2,
           background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
@@ -83,6 +139,11 @@ function AIMsg({ msg }) {
         }}>AI</div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Agent progress cards */}
+          {msg.agents && msg.agents.length > 0 && (
+            <AgentProgress agents={msg.agents} />
+          )}
+
           {/* Message bubble */}
           <div style={{
             padding: '10px 13px', borderRadius: '4px 14px 14px 14px',
@@ -100,6 +161,23 @@ function AIMsg({ msg }) {
               </div>
             ) : null}
           </div>
+
+          {/* Completion summary */}
+          {msg.summary && msg.summary.length > 0 && (
+            <div style={{
+              marginTop: 6, padding: '8px 12px', borderRadius: 8,
+              background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)',
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', marginBottom: 4 }}>
+                Build Complete
+              </div>
+              {msg.summary.map((s, i) => (
+                <div key={i} style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 1 }}>
+                  {s}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Files changed badges */}
           {msg.filesChanged?.length > 0 && (
@@ -123,19 +201,48 @@ export default function ChatPanel({ projectId, onRefreshTree }) {
     chatMessages, addMessage, updateLastMessage, clearMessages,
     isAiThinking, setIsAiThinking, setAiThinkingSteps, addAiAction,
     selectedModel, currentProject,
+    activeAgents, addActiveAgent, updateAgent, clearAgents,
   } = useAppStore();
 
   const messages = chatMessages[projectId] || [];
   const [input, setInput] = useState('');
   const [abortCtrl, setAbortCtrl] = useState(null);
   const [activeCat, setActiveCat] = useState(0);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, messages[messages.length - 1]?.content]);
+  }, [messages.length, messages[messages.length - 1]?.content, activeAgents]);
+
+  function handleImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image too large (max 10MB)');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      setImageBase64(base64);
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearImage() {
+    setImagePreview(null);
+    setImageBase64(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
 
   const send = useCallback(async (promptOverride) => {
     const text = (promptOverride || input).trim();
@@ -145,29 +252,38 @@ export default function ChatPanel({ projectId, onRefreshTree }) {
       return;
     }
 
+    const currentImage = imagePreview;
+    const currentBase64 = imageBase64;
     setInput('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    clearImage();
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-    addMessage({ role: 'user', content: text });
-    addMessage({ role: 'assistant', content: '', streaming: true });
+    addMessage({ role: 'user', content: text, imagePreview: currentImage });
+    addMessage({ role: 'assistant', content: '', streaming: true, agents: [] });
     setIsAiThinking(true);
     setAiThinkingSteps([]);
+    clearAgents();
 
     const ctrl = new AbortController();
     setAbortCtrl(ctrl);
     let filesChanged = [];
+    let agentMap = {};
 
     streamAI({
       projectId,
       messages: [{ role: 'user', content: text }],
       model: selectedModel,
+      imageBase64: currentBase64,
       signal: ctrl.signal,
       onFile: async ({ path: fp }) => {
         if (!filesChanged.includes(fp)) filesChanged.push(fp);
         addAiAction({ type: 'file', path: fp, message: `Created: ${fp}` });
         try { await onRefreshTree?.(); } catch {}
+      },
+      onAgentStatus: (data) => {
+        agentMap[data.id] = data;
+        const agentList = Object.values(agentMap);
+        updateLastMessage({ agents: agentList });
       },
       onChunk: (_, full) => {
         const clean = full
@@ -176,29 +292,42 @@ export default function ChatPanel({ projectId, onRefreshTree }) {
           .trim();
         updateLastMessage({ content: clean, streaming: true });
       },
-      onDone: () => {
-        updateLastMessage({ streaming: false, filesChanged });
+      onDone: (data) => {
+        // Mark all agents complete
+        for (const key in agentMap) {
+          agentMap[key] = { ...agentMap[key], status: 'complete' };
+        }
+        updateLastMessage({
+          streaming: false,
+          filesChanged: data?.filesChanged || filesChanged,
+          agents: Object.values(agentMap),
+          summary: data?.summary || [],
+        });
         setIsAiThinking(false);
         setAbortCtrl(null);
-        if (filesChanged.length > 0) {
-          toast.success(`✓ ${filesChanged.length} file${filesChanged.length > 1 ? 's' : ''} created`);
+        clearAgents();
+        const fc = data?.filesChanged || filesChanged;
+        if (fc.length > 0) {
+          toast.success(`${fc.length} file${fc.length > 1 ? 's' : ''} created`);
           onRefreshTree?.();
         }
       },
       onError: (err) => {
-        updateLastMessage({ content: `⚠️ ${err.message}`, streaming: false });
+        updateLastMessage({ content: `Error: ${err.message}`, streaming: false });
         setIsAiThinking(false);
         setAbortCtrl(null);
+        clearAgents();
         toast.error(err.message);
       },
     });
-  }, [input, isAiThinking, selectedModel, projectId]);
+  }, [input, isAiThinking, selectedModel, projectId, imageBase64, imagePreview]);
 
   function stop() {
     abortCtrl?.abort();
     setAbortCtrl(null);
     updateLastMessage({ streaming: false });
     setIsAiThinking(false);
+    clearAgents();
   }
 
   function handleKey(e) {
@@ -244,7 +373,6 @@ export default function ChatPanel({ projectId, onRefreshTree }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
         {showQuick ? (
           <div>
-            {/* Welcome */}
             <div style={{ textAlign: 'center', marginBottom: 20, paddingTop: 8 }}>
               <div style={{
                 width: 52, height: 52, borderRadius: 18, margin: '0 auto 12px',
@@ -259,7 +387,6 @@ export default function ChatPanel({ projectId, onRefreshTree }) {
               </p>
             </div>
 
-            {/* Category tabs */}
             <div style={{ display: 'flex', gap: 4, marginBottom: 8, overflowX: 'auto' }} className="no-scrollbar">
               {QUICK_CATEGORIES.map((cat, i) => (
                 <button key={cat.label} onClick={() => setActiveCat(i)} style={{
@@ -275,7 +402,6 @@ export default function ChatPanel({ projectId, onRefreshTree }) {
               ))}
             </div>
 
-            {/* Quick prompts */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {QUICK_CATEGORIES[activeCat].prompts.map((p, i) => (
                 <button key={i} onClick={() => send(p)} style={{
@@ -307,14 +433,45 @@ export default function ChatPanel({ projectId, onRefreshTree }) {
       {!selectedModel && (
         <div style={{ padding: '7px 12px', background: 'rgba(245,158,11,0.08)', borderTop: '1px solid rgba(245,158,11,0.15)' }}>
           <p style={{ fontSize: 11, color: '#f59e0b', textAlign: 'center' }}>
-            ⚠️ No model connected. Run <code>ollama serve</code> then <code>ollama pull llama3</code>
+            No model connected. Run <code>ollama serve</code> then <code>ollama pull llama3</code>
           </p>
+        </div>
+      )}
+
+      {/* Image preview */}
+      {imagePreview && (
+        <div style={{ padding: '6px 12px 0', flexShrink: 0 }}>
+          <div style={{
+            position: 'relative', display: 'inline-block', borderRadius: 8, overflow: 'hidden',
+            border: '1px solid var(--border)',
+          }}>
+            <img src={imagePreview} alt="Upload preview" style={{ height: 60, borderRadius: 8 }} />
+            <button onClick={clearImage} style={{
+              position: 'absolute', top: 2, right: 2, width: 18, height: 18,
+              borderRadius: '50%', border: 'none', cursor: 'pointer',
+              background: 'rgba(0,0,0,0.7)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <X size={10} />
+            </button>
+          </div>
         </div>
       )}
 
       {/* Input */}
       <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          {/* Image upload button */}
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn-icon"
+            style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10 }}
+            title="Upload image"
+          >
+            <ImagePlus size={15} />
+          </button>
+
           <textarea
             ref={textareaRef}
             data-chat-input

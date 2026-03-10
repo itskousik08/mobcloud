@@ -55,7 +55,7 @@ export const api = {
 };
 
 // ── Streaming AI ──────────────────────────────────────────────────
-export function streamAI({ projectId, messages, model, imageBase64, onChunk, onFile, onThinking, onDone, onError, signal }) {
+export function streamAI({ projectId, messages, model, imageBase64, onChunk, onFile, onThinking, onAgentStatus, onDone, onError, signal }) {
   let buffer = '';
   let fullText = '';
   const filesChanged = [];
@@ -92,6 +92,9 @@ export function streamAI({ projectId, messages, model, imageBase64, onChunk, onF
           }
           if (event === 'thinking') {
             onThinking?.(data);
+          }
+          if (event === 'agent-status') {
+            onAgentStatus?.(data);
           }
           if (event === 'complete') {
             onDone?.({ ...data, filesChanged });

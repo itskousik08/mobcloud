@@ -8,7 +8,6 @@ import FileExplorer from '../components/FileExplorer/FileExplorer.jsx';
 import EditorPanel from '../components/Editor/EditorPanel.jsx';
 import ChatPanel from '../components/Chat/ChatPanel.jsx';
 import PreviewPanel from '../components/Preview/PreviewPanel.jsx';
-import ToolsSidebar from '../components/Workspace/ToolsSidebar.jsx';
 
 export default function WorkspacePage() {
   const { projectId } = useParams();
@@ -16,17 +15,16 @@ export default function WorkspacePage() {
   const {
     setCurrentProject, setFileTree, openFile,
     setPreviewUrl, mobilePanel, setMobilePanel,
-    closeAllFiles,
+    closeAllFiles, centerView, setCenterView,
   } = useAppStore();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [explorerWidth, setExplorerWidth] = useState(220);
-  const [chatWidth, setChatWidth] = useState(340);
+  const [explorerWidth, setExplorerWidth] = useState(240);
+  const [chatWidth, setChatWidth] = useState(380);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const dragging = useRef(null);
 
-  // Track window width for responsive layout (avoids Tailwind hidden/flex bugs)
   useEffect(() => {
     const onResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', onResize);
@@ -47,7 +45,6 @@ export default function WorkspacePage() {
         setPreviewUrl(`/preview/${projectId}/index.html`);
       })
       .catch((err) => {
-        console.error('Load project error:', err);
         setError(err.message);
         toast.error('Failed to load project');
       })
@@ -65,11 +62,13 @@ export default function WorkspacePage() {
     try {
       const result = await api.readFile(projectId, filePath);
       openFile({ path: filePath, content: result.content || '', mimeType: result.mimeType });
-      setMobilePanel('editor');
+      // Auto-switch to code view when opening a file
+      setCenterView('code');
+      if (windowWidth < 768) setMobilePanel('editor');
     } catch (err) {
       toast.error(`Cannot open file: ${err.message}`);
     }
-  }, [projectId]);
+  }, [projectId, windowWidth]);
 
   // Cmd+K shortcut
   useEffect(() => {
@@ -93,8 +92,8 @@ export default function WorkspacePage() {
         if (!dragging.current) return;
         const dx = ev.clientX - dragging.current.startX;
         dragging.current.startX = ev.clientX;
-        if (side === 'explorer') setExplorerWidth(w => Math.max(160, Math.min(400, w + dx)));
-        if (side === 'chat') setChatWidth(w => Math.max(260, Math.min(500, w - dx)));
+        if (side === 'explorer') setExplorerWidth(w => Math.max(180, Math.min(400, w + dx)));
+        if (side === 'chat') setChatWidth(w => Math.max(300, Math.min(550, w - dx)));
       };
       const onUp = () => {
         dragging.current = null;
@@ -110,7 +109,6 @@ export default function WorkspacePage() {
     };
   }
 
-  // ── Loading ──
   if (loading) return (
     <div style={{ height: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
       <div style={{ display: 'flex', gap: 6 }}>
@@ -120,7 +118,6 @@ export default function WorkspacePage() {
     </div>
   );
 
-  // ── Error ──
   if (error) return (
     <div style={{ height: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
       <div style={{ fontSize: 40 }}>⚠️</div>
@@ -131,13 +128,12 @@ export default function WorkspacePage() {
   );
 
   const isMobile = windowWidth < 768;
-  const isWide = windowWidth >= 1100;
 
   const MOBILE_TABS = [
-    { id: 'chat', label: 'AI', emoji: '🤖' },
-    { id: 'files', label: 'Files', emoji: '📁' },
-    { id: 'editor', label: 'Code', emoji: '✏️' },
-    { id: 'preview', label: 'Preview', emoji: '👁️' },
+    { id: 'chat', label: 'AI Chat', icon: '🤖' },
+    { id: 'files', label: 'Files', icon: '📁' },
+    { id: 'editor', label: 'Code', icon: '✏️' },
+    { id: 'preview', label: 'Preview', icon: '👁️' },
   ];
 
   return (
@@ -145,7 +141,6 @@ export default function WorkspacePage() {
       <WorkspaceHeader projectId={projectId} onRefreshTree={refreshTree} />
 
       {isMobile ? (
-        /* ── Mobile ── */
         <>
           <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
             {mobilePanel === 'files' && <FileExplorer projectId={projectId} onFileOpen={openFileHandler} onRefresh={refreshTree} />}
@@ -161,41 +156,64 @@ export default function WorkspacePage() {
                 color: mobilePanel === tab.id ? '#818cf8' : 'var(--muted)',
                 background: mobilePanel === tab.id ? 'rgba(99,102,241,0.08)' : 'var(--surface)',
               }}>
-                <span style={{ fontSize: 18 }}>{tab.emoji}</span>
+                <span style={{ fontSize: 16 }}>{tab.icon}</span>
                 <span style={{ fontSize: 10 }}>{tab.label}</span>
               </button>
             ))}
           </div>
         </>
       ) : (
-        /* ── Desktop ── */
+        /* ── Desktop 3-Panel Layout ── */
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-          {/* File Explorer */}
+          {/* LEFT: File Explorer */}
           <div style={{ width: explorerWidth, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <FileExplorer projectId={projectId} onFileOpen={openFileHandler} onRefresh={refreshTree} />
           </div>
           <div className="resize-h" onMouseDown={startResize('explorer')} />
 
-          {/* Editor */}
+          {/* CENTER: Preview / Code */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <EditorPanel projectId={projectId} />
+            {/* View tabs */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 0,
+              borderBottom: '1px solid var(--border)', background: 'var(--surface)',
+              flexShrink: 0, height: 36,
+            }}>
+              <button onClick={() => setCenterView('preview')} style={{
+                padding: '0 16px', height: '100%', fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', border: 'none', transition: 'all 0.15s',
+                background: centerView === 'preview' ? 'var(--surface2)' : 'transparent',
+                color: centerView === 'preview' ? '#818cf8' : 'var(--muted)',
+                borderBottom: centerView === 'preview' ? '2px solid #6366f1' : '2px solid transparent',
+              }}>
+                👁️ Preview
+              </button>
+              <button onClick={() => setCenterView('code')} style={{
+                padding: '0 16px', height: '100%', fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', border: 'none', transition: 'all 0.15s',
+                background: centerView === 'code' ? 'var(--surface2)' : 'transparent',
+                color: centerView === 'code' ? '#818cf8' : 'var(--muted)',
+                borderBottom: centerView === 'code' ? '2px solid #6366f1' : '2px solid transparent',
+              }}>
+                ✏️ Code
+              </button>
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+              {centerView === 'preview' ? (
+                <PreviewPanel projectId={projectId} />
+              ) : (
+                <EditorPanel projectId={projectId} />
+              )}
+            </div>
           </div>
 
-          {/* Preview - only on wide screens */}
-          {isWide && (
-            <div style={{ width: '30%', minWidth: 240, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-              <PreviewPanel projectId={projectId} />
-            </div>
-          )}
+          <div className="resize-h" onMouseDown={startResize('chat')} />
 
-          {/* Chat */}
+          {/* RIGHT: AI Chat */}
           <div style={{ width: chatWidth, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div className="resize-h" onMouseDown={startResize('chat')} style={{ width: 3 }} />
             <ChatPanel projectId={projectId} onRefreshTree={refreshTree} />
           </div>
-
-          {/* Tools sidebar */}
-          <ToolsSidebar projectId={projectId} />
         </div>
       )}
     </div>
