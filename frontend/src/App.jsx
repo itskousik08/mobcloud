@@ -6,7 +6,13 @@ import HomePage from './pages/HomePage.jsx';
 import WorkspacePage from './pages/WorkspacePage.jsx';
 
 export default function App() {
-  const { setModels, setOllamaStatus, setSelectedModel, selectedModel } = useAppStore();
+  const { setModels, setOllamaStatus, setSelectedModel, selectedModel, theme } = useAppStore();
+
+  useEffect(() => {
+    // Apply theme
+    if (theme === 'light') document.documentElement.classList.add('light-mode');
+    else document.documentElement.classList.remove('light-mode');
+  }, [theme]);
 
   useEffect(() => {
     async function check() {

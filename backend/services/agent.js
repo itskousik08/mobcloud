@@ -3,27 +3,22 @@ const path = require('path');
 const { streamChat } = require('./ollama');
 
 // ─────────────────────────────────────────────
-// MULTI-AGENT DEFINITIONS
-// ─────────────────────────────────────────────
-const AGENTS = [
-  { id: 'analyzer', name: 'Prompt Analyzer', icon: '🔍', description: 'Understanding your request deeply...' },
-  { id: 'researcher', name: 'Research Agent', icon: '📚', description: 'Finding best practices and approaches...' },
-  { id: 'planner', name: 'Planner Agent', icon: '📋', description: 'Designing project architecture...' },
-  { id: 'coder', name: 'Coder Agent', icon: '💻', description: 'Generating project files...' },
-  { id: 'reviewer', name: 'Reviewer Agent', icon: '✅', description: 'Reviewing code for errors and improvements...' },
-];
-
-// ─────────────────────────────────────────────
 // MASTER SYSTEM PROMPT
 // ─────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are MobCloud AI — a world-class senior software architect and full-stack developer.
+const SYSTEM_PROMPT = `You are MobCloud AI — an advanced Simulated Multi-Agent System.
 
-You build COMPLETE, PRODUCTION-READY applications: React, Vue, Next.js, plain HTML/CSS/JS, Node.js APIs, Python, and more.
+You simulate the following specialized agents:
+1. [Prompt Analyzer]: Understands user request deeply.
+2. [Research Agent]: Finds best practices and approaches.
+3. [Planner Agent]: Creates a step-by-step implementation plan.
+4. [Coder Agent]: Writes the full code for necessary files.
+5. [Reviewer Agent]: Reviews code for errors.
+6. [Doubt Agent]: Asks user questions if anything is unclear before proceeding.
 
 ═══════════════════════════════
 FILE WRITING PROTOCOL (MANDATORY)
 ═══════════════════════════════
-Every file you create or modify MUST use this exact format:
+Every file creation or modification MUST use this exact format:
 
 <file path="RELATIVE/PATH/TO/FILE">
 COMPLETE FILE CONTENT HERE
@@ -32,167 +27,48 @@ COMPLETE FILE CONTENT HERE
 RULES:
 • Path is always relative to project root (e.g., src/components/Button.jsx)
 • Always write COMPLETE file content — never partial, never "..." placeholders
-• Never put code in chat messages — ALL code goes in <file> tags only
-• You can create unlimited files per response
-• Create folders implicitly by using paths (src/components/Navbar.jsx creates src/components/ automatically)
+• YOU MUST NEVER PUT CODE SNIPPETS IN CHAT MESSAGES — ALL code MUST go in <file> tags ONLY.
 
 ═══════════════════════════════
-THINKING PROTOCOL
-═══════════════════════════════
-Always show your reasoning:
-
-<thinking>
-Project type: [detected type]
-Framework: [chosen framework]
-Files to create: [list]
-Architecture: [brief description]
-Database: [if needed]
-</thinking>
-
-═══════════════════════════════
-STANDARD FILES YOU ALWAYS CREATE
-═══════════════════════════════
-For EVERY project, always create these if they don't exist:
-• README.md — project description, setup instructions, usage
-• .gitignore — ignore node_modules, .env, dist, build, etc.
-• favicon.svg or favicon.ico — simple branded icon
-• robots.txt — allow all crawlers
-• placeholder.svg — reusable placeholder image
-
-For web projects also create:
-• index.html (or src/main.jsx for React)
-• style.css or tailwind config
-
-For React/Next.js projects:
-• package.json with all dependencies
-• src/App.jsx
-• src/components/ structure
-• src/hooks/ (useLocalStorage, useFetch, etc.)
-• src/lib/utils.js
-• src/pages/ or src/routes/
-• .env.example
-
-For Node.js/API projects:
-• server.js or index.js
-• routes/ folder
-• middleware/ folder
-• .env.example
-• package.json
-
-═══════════════════════════════
-DATABASE INTEGRATION
-═══════════════════════════════
-If the project needs a database:
-
-For SUPABASE:
-• Create supabase.sql with complete schema (CREATE TABLE, RLS policies, indexes)
-• Create src/lib/supabase.js with client setup
-• Create .env.example with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
-
-For FIREBASE:
-• Create firebase.json and .firebaserc
-• Create src/lib/firebase.js with app initialization
-• Create firestore.rules and storage.rules
-• Create .env.example with all FIREBASE_ keys
-
-For SQLite/Prisma:
-• Create prisma/schema.prisma with full data models
-• Create prisma/seed.js
-• Create src/lib/prisma.js
-
-═══════════════════════════════
-PROJECT STRUCTURES
-═══════════════════════════════
-
-React + Vite:
-src/
-  components/
-    ui/          ← Button, Input, Modal, Card, Badge, etc.
-    layout/      ← Navbar, Footer, Sidebar, Layout
-    features/    ← Feature-specific components
-  hooks/         ← useAuth, useFetch, useLocalStorage, etc.
-  lib/           ← utils.js, api.js, constants.js
-  pages/         ← Home, About, Dashboard, etc.
-  store/         ← Zustand or Context stores
-  styles/        ← global.css, variables.css
-  types/         ← TypeScript types if needed
-public/
-  favicon.svg
-  robots.txt
-  placeholder.svg
-
-Next.js:
-app/ or pages/
-  layout.jsx
-  page.jsx
-  globals.css
-components/
-lib/
-public/
-package.json
-next.config.js
-tailwind.config.js
-
-═══════════════════════════════
-CODE QUALITY STANDARDS
-═══════════════════════════════
-• Mobile-first responsive design ALWAYS
-• Semantic HTML5
-• Accessibility: aria labels, keyboard nav, focus styles
-• Performance: lazy loading, code splitting, optimized images
-• Security: input validation, XSS prevention, CSP headers
-• Modern CSS: CSS variables, flexbox, grid, animations
-• Clean component architecture
-• Error boundaries and loading states
-• Empty states for all data displays
-• Dark mode support when appropriate
-
-═══════════════════════════════
-SMART UPDATE PROTOCOL
+SMART UPDATE SYSTEM (MANDATORY)
 ═══════════════════════════════
 When updating an existing project:
-1. Analyze ALL existing files first
-2. Understand the current architecture and structure
-3. Only modify files that need changes
-4. Keep existing working code intact
-5. NEVER regenerate the entire project unnecessarily
-6. Explain what you changed and why
+1. First analyze the existing files provided in the context.
+2. Understand the current architecture.
+3. ONLY rewrite or modify the specific files that need changes for the request. Do NOT regenerate the whole project unless explicitly asked.
 
 ═══════════════════════════════
-CHAT RESPONSE FORMAT
+MULTI-AGENT CHAT PROTOCOL
 ═══════════════════════════════
-Your chat messages should contain ONLY:
-1. Brief summary of what you built (2-4 sentences)
-2. List of files created (✓ filename.ext — description)
-3. Setup instructions if needed (npm install, etc.)
-4. Questions if clarification needed
+Your chat messages should ONLY contain progress updates in this precise format:
 
-NEVER include raw code, code blocks, or snippets in chat messages.
-ALL code goes in <file> tags only.
+Agent: [Agent Name]
+Status: [What the agent is currently doing]
 
-═══════════════════════════════
-CLARIFICATION PROTOCOL (DOUBT AGENT)
-═══════════════════════════════
-If request is vague or unclear, ask targeted questions BEFORE building:
-"Before I start building, I need a few details:
-1. [Specific question with options]
-2. [Specific question with options]
-..."
+When making decisions, you can use:
+<thinking>
+Agent: [Agent Name]
+Thought: [Internal reasoning]
+</thinking>
 
-Then wait for answers before generating files.
+Example sequence:
+Agent: Prompt Analyzer
+Status: Analyzing request for a dark theme landing page...
 
-═══════════════════════════════
-IMAGE ANALYSIS
-═══════════════════════════════
-If an image is provided:
-1. Analyze the UI layout, colors, typography, and structure
-2. Identify components, sections, and interactive elements
-3. Implement the exact design as closely as possible
-4. Use modern CSS to match the visual style
-`;
+Agent: Planner Agent
+Status: Designing layout architecture...
+
+Agent: Coder Agent
+Status: Generating React components...
+
+When finished, display exactly:
+"Your project is complete."
+Followed by a brief bulleted summary of features implemented.
+
+DO NOT OUTPUT CODE IN THE CHAT EVER.`;
 
 // ─────────────────────────────────────────────
-// BINARY FILE STUBS
+// BINARY FILE STUBS (created as placeholders)
 // ─────────────────────────────────────────────
 const BINARY_STUBS = {
   'favicon.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
@@ -267,7 +143,7 @@ coverage/
 };
 
 // ─────────────────────────────────────────────
-// AGENT CLASS WITH MULTI-AGENT SIMULATION
+// AGENT CLASS
 // ─────────────────────────────────────────────
 class AIAgent {
   constructor(workspaceDir, io) {
@@ -279,6 +155,7 @@ class AIAgent {
     return path.join(this.workspaceDir, pid);
   }
 
+  // Read existing project files for context
   async readProjectContext(pid, maxFiles = 15) {
     const dir = this.getProjectDir(pid);
     if (!fs.existsSync(dir)) return '';
@@ -295,27 +172,29 @@ class AIAgent {
 
   _collectTextFiles(base, dir, result, max) {
     if (result.length >= max) return;
-    const TEXT_EXTS = ['.html','.css','.js','.jsx','.ts','.tsx','.json','.md','.txt',
-      '.svg','.xml','.yaml','.yml','.env','.prisma','.sql','.graphql','.sh','.py','.php','.vue'];
+    const TEXT_EXTS = ['.html', '.css', '.js', '.jsx', '.ts', '.tsx', '.json', '.md', '.txt',
+      '.svg', '.xml', '.yaml', '.yml', '.env', '.prisma', '.sql', '.graphql', '.sh', '.py', '.php', '.vue'];
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true })
         .sort((a, b) => {
-          const priority = ['index.html','index.jsx','App.jsx','package.json','style.css'];
+          // Prioritize important files
+          const priority = ['index.html', 'index.jsx', 'App.jsx', 'package.json', 'style.css'];
           return priority.indexOf(a.name) - priority.indexOf(b.name);
         });
       for (const e of entries) {
         if (result.length >= max) break;
         if (e.name.startsWith('.') && e.name !== '.env.example' && e.name !== '.gitignore') continue;
-        if (['node_modules','dist','build','.next','coverage','.snapshots'].includes(e.name)) continue;
+        if (['node_modules', 'dist', 'build', '.next', 'coverage', '.snapshots'].includes(e.name)) continue;
         const full = path.join(dir, e.name);
         if (e.isDirectory()) this._collectTextFiles(base, full, result, max);
         else if (TEXT_EXTS.some(x => e.name.endsWith(x))) {
           result.push({ full, rel: path.relative(base, full) });
         }
       }
-    } catch {}
+    } catch { }
   }
 
+  // Parse all <file path="...">content</file> blocks
   parseFileBlocks(text) {
     const blocks = [];
     const regex = /<file path="([^"]+)">([\s\S]*?)<\/file>/g;
@@ -330,30 +209,35 @@ class AIAgent {
     return blocks;
   }
 
+  // Parse thinking block
   parseThinking(text) {
     const m = text.match(/<thinking>([\s\S]*?)<\/thinking>/);
     return m ? m[1].trim() : null;
   }
 
+  // Write a single file safely
   writeFile(projectDir, filePath, content) {
+    // Sanitize path
     const safe = path.join(projectDir, filePath);
-    if (!safe.startsWith(projectDir)) return false;
+    if (!safe.startsWith(projectDir)) return false; // path traversal guard
     fs.ensureDirSync(path.dirname(safe));
     fs.writeFileSync(safe, content, 'utf-8');
     return true;
   }
 
+  // Create standard stub files if missing
   async createStandardFiles(projectDir, emit) {
     for (const [filename, content] of Object.entries(BINARY_STUBS)) {
       const filePath = path.join(projectDir, filename);
       if (!fs.existsSync(filePath)) {
         fs.ensureDirSync(path.dirname(filePath));
         fs.writeFileSync(filePath, content, 'utf-8');
-        emit('ai-action', { type: 'auto-create', path: filename, message: `Auto-created: ${filename}` });
+        emit('ai-action', { type: 'auto-create', path: filename, message: `📄 Auto-created: ${filename}` });
       }
     }
   }
 
+  // Save a snapshot before AI edits
   async saveSnapshot(pid, label) {
     try {
       const dir = this.getProjectDir(pid);
@@ -363,7 +247,7 @@ class AIAgent {
       const list = [];
       this._collectTextFiles(dir, dir, list, 60);
       for (const f of list) {
-        try { files[f.rel] = fs.readFileSync(f.full, 'utf-8'); } catch {}
+        try { files[f.rel] = fs.readFileSync(f.full, 'utf-8'); } catch { }
       }
       const snap = {
         id: Date.now().toString(),
@@ -379,62 +263,34 @@ class AIAgent {
     }
   }
 
-  // Simulate multi-agent progress events
-  simulateAgents(emit, hasExistingFiles) {
-    const steps = [];
-    // Analyzer
-    steps.push({ delay: 0, agent: AGENTS[0] });
-    // Researcher
-    steps.push({ delay: 800, agent: AGENTS[1] });
-    // Planner
-    steps.push({ delay: 1800, agent: AGENTS[2] });
-    // Coder (starts when the LLM begins writing files)
-    steps.push({ delay: 3000, agent: AGENTS[3] });
-
-    const timers = [];
-    for (const step of steps) {
-      const timer = setTimeout(() => {
-        emit('agent-status', {
-          id: step.agent.id,
-          name: step.agent.name,
-          icon: step.agent.icon,
-          status: 'working',
-          description: step.agent.description,
-        });
-      }, step.delay);
-      timers.push(timer);
-    }
-    return timers;
-  }
-
-  // Main stream processor with multi-agent simulation
+  // Main stream processor
   async processStream({ projectId, messages, model, imageBase64, socket }) {
     const dir = this.getProjectDir(projectId);
     fs.ensureDirSync(dir);
 
     const context = await this.readProjectContext(projectId);
-    const hasExistingFiles = context.length > 0;
     const systemFull = context
       ? `${SYSTEM_PROMPT}\n\n${'═'.repeat(40)}\nEXISTING PROJECT FILES:\n${'═'.repeat(40)}\n${context}`
       : SYSTEM_PROMPT;
 
-    await this.saveSnapshot(projectId, `Before: ${(messages[messages.length-1]?.content || '').substring(0, 50)}`);
+    // Save undo snapshot
+    await this.saveSnapshot(projectId, `Before: ${(messages[messages.length - 1]?.content || '').substring(0, 50)}`);
 
     const emit = (event, data) => {
-      try { socket?.emit(event, data); } catch {}
-      try { this.io?.to(`project-${projectId}`).emit(event, data); } catch {}
+      try { socket?.emit(event, data); } catch { }
+      try { this.io?.to(`project-${projectId}`).emit(event, data); } catch { }
     };
 
-    // Start multi-agent simulation
-    const agentTimers = this.simulateAgents(emit, hasExistingFiles);
+    emit('ai-thinking', { thinking: 'Analyzing your request...' });
 
+    // Auto-create standard files on first use
     await this.createStandardFiles(dir, emit);
 
     let fullText = '';
-    const writtenFiles = new Map();
+    const writtenFiles = new Map(); // path → content (deduplication)
     let thinkingShown = false;
-    let firstFileWritten = false;
 
+    // Build Ollama messages — support vision/image
     let ollamaMessages = messages.map(m => ({ role: m.role, content: m.content || '' }));
     if (imageBase64 && ollamaMessages.length > 0) {
       const last = ollamaMessages[ollamaMessages.length - 1];
@@ -450,43 +306,28 @@ class AIAgent {
         fullText = full;
         emit('ai-chunk', { chunk, full });
 
+        // Show thinking in real time
         const thinking = this.parseThinking(full);
         if (thinking && !thinkingShown) {
           emit('ai-thinking', { thinking });
           if (full.includes('</thinking>')) thinkingShown = true;
         }
 
+        // Write files as they complete during streaming
         const blocks = this.parseFileBlocks(full);
         for (const block of blocks) {
           const prev = writtenFiles.get(block.path);
           if (prev !== block.content) {
             writtenFiles.set(block.path, block.content);
-
-            // Fire coder agent status on first file
-            if (!firstFileWritten) {
-              firstFileWritten = true;
-              emit('agent-status', {
-                id: 'coder',
-                name: 'Coder Agent',
-                icon: '💻',
-                status: 'writing',
-                description: `Writing ${block.path}...`,
-              });
-            } else {
-              emit('agent-status', {
-                id: 'coder',
-                name: 'Coder Agent',
-                icon: '💻',
-                status: 'writing',
-                description: `Writing ${block.path}...`,
-              });
-            }
-
             try {
               const ok = this.writeFile(dir, block.path, block.content);
               if (ok) {
                 emit('file-changed', { path: block.path, content: block.content });
-                emit('ai-action', { type: 'write-file', path: block.path, message: `✓ ${block.path}` });
+                emit('ai-action', {
+                  type: 'write-file',
+                  path: block.path,
+                  message: `✓ ${block.path}`
+                });
               }
             } catch (err) {
               emit('ai-error', { message: `Failed to write ${block.path}: ${err.message}` });
@@ -496,71 +337,26 @@ class AIAgent {
       },
 
       onDone: (full) => {
-        // Clear agent timers
-        agentTimers.forEach(t => clearTimeout(t));
-
+        // Final pass — ensure all files are written
         const blocks = this.parseFileBlocks(full);
         for (const block of blocks) {
           if (!writtenFiles.has(block.path) || writtenFiles.get(block.path) !== block.content) {
-            try { this.writeFile(dir, block.path, block.content); } catch {}
+            try { this.writeFile(dir, block.path, block.content); } catch { }
           }
         }
-
-        // Fire reviewer agent
-        emit('agent-status', {
-          id: 'reviewer',
-          name: 'Reviewer Agent',
-          icon: '✅',
-          status: 'reviewing',
-          description: 'Reviewing generated code...',
+        emit('ai-done', {
+          message: full,
+          filesChanged: [...writtenFiles.keys()]
         });
-
-        // After brief delay, mark complete
-        setTimeout(() => {
-          emit('agent-status', {
-            id: 'reviewer',
-            name: 'Reviewer Agent',
-            icon: '✅',
-            status: 'complete',
-            description: 'Code review complete.',
-          });
-
-          emit('ai-done', {
-            message: full,
-            filesChanged: [...writtenFiles.keys()],
-            summary: generateSummary([...writtenFiles.keys()]),
-          });
-        }, 500);
       },
 
       onError: (err) => {
-        agentTimers.forEach(t => clearTimeout(t));
         emit('ai-error', { message: err.message });
       }
     });
 
     return { response: fullText, filesChanged: [...writtenFiles.keys()] };
   }
-}
-
-// Generate a summary of what was created
-function generateSummary(files) {
-  const items = [];
-  const byType = {};
-  for (const f of files) {
-    const ext = f.split('.').pop()?.toLowerCase() || 'other';
-    if (!byType[ext]) byType[ext] = [];
-    byType[ext].push(f);
-  }
-  if (byType.html) items.push(`Created ${byType.html.length} HTML file(s)`);
-  if (byType.css || byType.scss) items.push('Added styling');
-  if (byType.jsx || byType.tsx) items.push(`Built ${(byType.jsx?.length || 0) + (byType.tsx?.length || 0)} React component(s)`);
-  if (byType.js && !byType.jsx) items.push(`Created ${byType.js.length} JavaScript file(s)`);
-  if (byType.json) items.push('Configured project settings');
-  if (byType.md) items.push('Added documentation');
-  if (byType.svg) items.push('Added SVG assets');
-  if (items.length === 0) items.push(`Generated ${files.length} file(s)`);
-  return items;
 }
 
 module.exports = AIAgent;

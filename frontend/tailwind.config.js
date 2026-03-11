@@ -1,38 +1,43 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
-        cyber: ['Orbitron', 'sans-serif'],
+        cyber: ['Orbitron', 'Inter', 'sans-serif'],
       },
       colors: {
-        accent: { DEFAULT: '#6366f1', 2: '#8b5cf6' },
-        neon: { blue: '#00d4ff', purple: '#a855f7', green: '#22c55e' },
-        dark: { 900: '#050510', 800: '#0a0a1a', 700: '#0d0d1f', 600: '#12122a', 500: '#181838' },
+        accent: {
+          DEFAULT: '#00f0ff', // Cyber cyan
+          2: '#ff003c', // Cyber red
+          3: '#7000ff', // Neon purple
+        },
+        surface: {
+          DEFAULT: '#0a0a0f',
+          1: '#12121a',
+          2: '#1a1a24',
+          3: '#222230'
+        }
       },
       animation: {
-        'spin-slow': 'spin 3s linear infinite',
-        'float': 'float 3s ease-in-out infinite',
-        'glow': 'glowPulse 2s ease-in-out infinite',
-        'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'spin-slow': 'spin 4s linear infinite',
+        'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'float': 'float 6s ease-in-out infinite',
+        'float-fast': 'float 3s ease-in-out infinite',
       },
       keyframes: {
+        pulseGlow: {
+          '0%, 100%': { opacity: 1, boxShadow: '0 0 20px rgba(0, 240, 255, 0.5)' },
+          '50%': { opacity: .5, boxShadow: '0 0 10px rgba(0, 240, 255, 0.2)' },
+        },
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-6px)' },
-        },
-        glowPulse: {
-          '0%, 100%': { boxShadow: '0 0 20px rgba(99,102,241,0.2)' },
-          '50%': { boxShadow: '0 0 40px rgba(99,102,241,0.4)' },
-        },
-        slideUp: {
-          from: { opacity: '0', transform: 'translateY(40px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
-        },
-      },
+          '50%': { transform: 'translateY(-10px)' },
+        }
+      }
     },
   },
   plugins: [],

@@ -30,9 +30,11 @@ router.post('/chat/:projectId', async (req, res) => {
       try {
         switch (agentEvent) {
           case 'ai-chunk':
+            // data = { chunk, full }
             send('chunk', { content: data.chunk || '' });
             break;
           case 'file-changed':
+            // data = { path, content }
             send('file', { path: data.path, content: data.content });
             break;
           case 'ai-thinking':
@@ -41,20 +43,14 @@ router.post('/chat/:projectId', async (req, res) => {
           case 'ai-action':
             send('action', data);
             break;
-          case 'agent-status':
-            send('agent-status', data);
-            break;
           case 'ai-done':
-            send('complete', {
-              filesChanged: data.filesChanged || [],
-              message: data.message || '',
-              summary: data.summary || [],
-            });
+            // Don't send complete yet — we do it after processStream returns
             break;
           case 'ai-error':
             send('error', { message: data.message });
             break;
           default:
+            // Pass through anything else
             send(agentEvent.replace('ai-', ''), data);
         }
       } catch {}
@@ -63,12 +59,16 @@ router.post('/chat/:projectId', async (req, res) => {
 
   try {
     const ag = getAgent(req.app);
-    await ag.processStream({
+    const result = await ag.processStream({
       projectId: req.params.projectId,
       messages,
       model,
       imageBase64,
       socket: fakeSocket,
+    });
+    send('complete', {
+      filesChanged: result.filesChanged || [],
+      message: result.response || '',
     });
   } catch (err) {
     send('error', { message: err.message });

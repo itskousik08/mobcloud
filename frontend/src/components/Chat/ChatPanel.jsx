@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, StopCircle, Trash2, Sparkles, Code, Globe, Layers,
-  FileCode, ChevronRight, ImagePlus, X, CheckCircle2, Loader2,
+  FileCode, ChevronRight, Image as ImageIcon, X, CheckCircle2, Activity, Cpu, Bot
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -13,107 +13,55 @@ const QUICK_CATEGORIES = [
   {
     label: 'Build', icon: Code,
     prompts: [
-      'Create a stunning modern landing page with animated hero, features grid, pricing cards, and contact form',
-      'Build a full portfolio website with project gallery, skills section, testimonials, and dark theme',
-      'Create a restaurant website with menu sections, photo gallery, reservation form, and location map',
-      'Build a SaaS dashboard with sidebar nav, stats cards, data charts, and user table',
+      'Create a stunning dark-theme landing page with animated hero, features grid, pricing cards, and contact form',
+      'Build a full portfolio website with project gallery, skills section, and cyber UI theme',
     ]
   },
   {
     label: 'Improve', icon: Sparkles,
     prompts: [
       'Make this website fully mobile-responsive with hamburger menu and proper touch targets',
-      'Add smooth CSS animations, scroll reveals, hover effects, and micro-interactions throughout',
-      'Add dark/light mode toggle that persists in localStorage with smooth CSS variable transitions',
-      'Improve the overall design: better typography, color palette, spacing, and visual hierarchy',
+      'Add smooth CSS animations, scroll reveals, hover effects, and neon glows',
     ]
   },
   {
     label: 'Features', icon: Layers,
     prompts: [
-      'Add a working contact form with validation, success/error states, and email-style submission',
-      'Add smooth scroll navigation, active link highlighting, and scroll progress indicator',
-      'Create a filterable gallery/portfolio with category tabs and animated filtering',
-      'Add cookie consent banner, privacy policy page, and GDPR-compliant tracking setup',
-    ]
-  },
-  {
-    label: 'SEO & Export', icon: Globe,
-    prompts: [
-      'Add complete SEO: meta tags, Open Graph, Twitter Cards, JSON-LD structured data, and sitemap.xml',
-      'Create robots.txt, sitemap.xml, and add all performance-critical meta tags',
-      'Optimize for Core Web Vitals: lazy loading, font optimization, image placeholders, critical CSS',
-      'Generate a comprehensive README.md with features list, setup steps, and live demo section',
+      'Add a working contact form with validation, success/error states',
+      'Add smooth scroll navigation and active link highlighting',
     ]
   },
 ];
 
-// ── Agent Status Card ─────────────────────────────
-function AgentCard({ agent }) {
-  const isComplete = agent.status === 'complete';
-  const isWorking = agent.status === 'working' || agent.status === 'writing' || agent.status === 'reviewing';
+function parseAgentProgress(text) {
+  const agentMatch = text.match(/Agent:\s*([^\n]+)/g);
+  const statusMatch = text.match(/Status:\s*([^\n]+)/g);
 
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-      borderRadius: 10, background: isComplete ? 'rgba(16,185,129,0.06)' : 'rgba(99,102,241,0.06)',
-      border: `1px solid ${isComplete ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)'}`,
-      transition: 'all 0.3s ease',
-    }}>
-      <span style={{ fontSize: 18, flexShrink: 0 }}>{agent.icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 1 }}>
-          {agent.name}
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {agent.description}
-        </div>
-      </div>
-      <div style={{ flexShrink: 0 }}>
-        {isComplete ? (
-          <CheckCircle2 size={16} style={{ color: '#10b981' }} />
-        ) : isWorking ? (
-          <Loader2 size={16} style={{ color: '#818cf8', animation: 'spin 1s linear infinite' }} />
-        ) : null}
-      </div>
-    </div>
-  );
+  const currentAgent = agentMatch ? agentMatch[agentMatch.length - 1].replace(/Agent:\s*/, '').replace(/\*/g, '').trim() : 'System Analyzer';
+  const currentStatus = statusMatch ? statusMatch[statusMatch.length - 1].replace(/Status:\s*/, '').replace(/\*/g, '').trim() : 'Processing request...';
+
+  return { currentAgent, currentStatus };
 }
 
-// ── Agent Progress Panel ────────────────────────────
-function AgentProgress({ agents }) {
-  if (!agents || agents.length === 0) return null;
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{
-        fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6,
-        textTransform: 'uppercase', letterSpacing: '0.05em',
-      }}>
-        AI Agents Working
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {agents.map(agent => (
-          <AgentCard key={agent.id} agent={agent} />
-        ))}
-      </div>
-    </div>
-  );
+function cleanMarkdownContent(text) {
+  return (text || '')
+    .replace(/<file path="[^"]*">[\s\S]*?<\/file>/g, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
+    .replace(/Agent:\s*[^\n]+\n/g, '')
+    .replace(/Status:\s*[^\n]+\n?/g, '')
+    .trim();
 }
 
 // ── User message bubble ─────────────────────────────
 function UserMsg({ msg }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-      <div style={{
-        maxWidth: '85%', padding: '10px 14px', borderRadius: '14px 14px 4px 14px',
-        background: 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.12))',
-        border: '1px solid rgba(99,102,241,0.25)',
-        fontSize: 13, lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap',
-      }}>
-        {msg.imagePreview && (
-          <img src={msg.imagePreview} alt="Uploaded" style={{
-            maxWidth: '100%', maxHeight: 150, borderRadius: 8, marginBottom: 8, display: 'block',
-          }} />
+    <div className="flex justify-end mb-4">
+      <div className="max-w-[85%] p-3 rounded-2xl rounded-tr-sm bg-gradient-to-br from-[#00f0ff]/20 to-[#7000ff]/20 border border-[#00f0ff]/30 shadow-[0_0_15px_rgba(0,240,255,0.1)] text-white text-sm font-sans whitespace-pre-wrap leading-relaxed">
+        {msg.imageBase64 && (
+          <div className="mb-2 rounded-lg overflow-hidden border border-white/10 relative">
+            <img src={msg.imageBase64} alt="Uploaded context" className="max-w-full h-auto max-h-48 object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+          </div>
         )}
         {msg.content}
       </div>
@@ -123,73 +71,64 @@ function UserMsg({ msg }) {
 
 // ── AI message bubble ───────────────────────────────
 function AIMsg({ msg }) {
-  const displayText = (msg.content || '')
-    .replace(/<file path="[^"]*">[\s\S]*?<\/file>/g, '')
-    .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
-    .trim();
+  const isComplete = !msg.streaming;
+
+  if (!isComplete) {
+    const { currentAgent, currentStatus } = parseAgentProgress(msg.content || '');
+    return (
+      <div className="mb-4 flex items-start gap-3">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/5 border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.1)]">
+          <Cpu size={16} className="text-[#00f0ff]" />
+        </div>
+        <div className="flex-1 min-w-0 bg-[#0a0a0f] border border-[#00f0ff]/30 rounded-2xl rounded-tl-sm p-4 shadow-[0_0_20px_rgba(0,240,255,0.15)] relative overflow-hidden">
+          {/* Animated scanline */}
+          <div className="absolute inset-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#00f0ff]/50 to-transparent translate-y-[-10px] animate-[slideDown_2s_ease-in-out_infinite]" />
+
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex gap-1">
+              <span className="w-1.5 h-1.5 bg-[#00f0ff] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-[#00f0ff] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-[#00f0ff] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span className="font-mono text-xs font-bold text-[#00f0ff] tracking-widest uppercase">{currentAgent}</span>
+          </div>
+          <div className="text-sm text-gray-300 font-mono">{currentStatus}</div>
+        </div>
+      </div>
+    );
+  }
+
+  const cleanText = cleanMarkdownContent(msg.content);
 
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-        <div style={{
-          width: 26, height: 26, borderRadius: 8, flexShrink: 0, marginTop: 2,
-          background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 10, fontWeight: 800, color: '#fff',
-        }}>AI</div>
+    <div className="mb-4 flex items-start gap-3">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-[#00f0ff] to-[#7000ff] shadow-[0_0_15px_rgba(0,240,255,0.4)]">
+        <Bot size={18} className="text-white" />
+      </div>
+      <div className="flex-1 min-w-0 bg-[#12121a] border border-white/10 rounded-2xl rounded-tl-sm p-4">
+        <div className="flex items-center gap-2 mb-3 border-b border-white/5 pb-3">
+          <CheckCircle2 size={16} className="text-[#00ff9d]" />
+          <span className="text-sm font-bold text-white tracking-wide">Task Completed Successfully</span>
+        </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Agent progress cards */}
-          {msg.agents && msg.agents.length > 0 && (
-            <AgentProgress agents={msg.agents} />
-          )}
-
-          {/* Message bubble */}
-          <div style={{
-            padding: '10px 13px', borderRadius: '4px 14px 14px 14px',
-            background: 'var(--surface2)', border: '1px solid var(--border)',
-            fontSize: 13, lineHeight: 1.6,
-          }}>
-            {!displayText && msg.streaming ? (
-              <div style={{ display: 'flex', gap: 5, padding: '2px 0' }}>
-                <div className="thinking-dot" /><div className="thinking-dot" /><div className="thinking-dot" />
-              </div>
-            ) : displayText ? (
-              <div className="prose-ai">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayText}</ReactMarkdown>
-                {msg.streaming && <span className="ai-cursor" />}
-              </div>
-            ) : null}
+        {cleanText && (
+          <div className="prose-ai text-gray-300 text-sm mb-4 leading-relaxed custom-markdown">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanText}</ReactMarkdown>
           </div>
+        )}
 
-          {/* Completion summary */}
-          {msg.summary && msg.summary.length > 0 && (
-            <div style={{
-              marginTop: 6, padding: '8px 12px', borderRadius: 8,
-              background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)',
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', marginBottom: 4 }}>
-                Build Complete
-              </div>
-              {msg.summary.map((s, i) => (
-                <div key={i} style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 1 }}>
-                  {s}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Files changed badges */}
-          {msg.filesChanged?.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+        {msg.filesChanged?.length > 0 && (
+          <div>
+            <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-2">Affected Files</div>
+            <div className="flex flex-wrap gap-2">
               {msg.filesChanged.map((f, i) => (
-                <span key={i} className="file-badge">
-                  <FileCode size={9} /> {f.split('/').pop()}
+                <span key={i} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded bg-[#00f0ff]/10 border border-[#00f0ff]/20 text-[#00f0ff]">
+                  <FileCode size={12} /> {f.split('/').pop()}
                 </span>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -199,135 +138,93 @@ function AIMsg({ msg }) {
 export default function ChatPanel({ projectId, onRefreshTree }) {
   const {
     chatMessages, addMessage, updateLastMessage, clearMessages,
-    isAiThinking, setIsAiThinking, setAiThinkingSteps, addAiAction,
+    isAiThinking, setIsAiThinking,
     selectedModel, currentProject,
-    activeAgents, addActiveAgent, updateAgent, clearAgents,
   } = useAppStore();
 
   const messages = chatMessages[projectId] || [];
   const [input, setInput] = useState('');
+  const [imageBase64, setImageBase64] = useState(null);
   const [abortCtrl, setAbortCtrl] = useState(null);
   const [activeCat, setActiveCat] = useState(0);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [imageBase64, setImageBase64] = useState(null);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, messages[messages.length - 1]?.content, activeAgents]);
+  }, [messages.length, messages[messages.length - 1]?.content]);
 
-  function handleImageUpload(e) {
+  // Handle Image Upload
+  const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Image too large (max 10MB)');
-      return;
-    }
     const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
-      setImageBase64(base64);
-      setImagePreview(reader.result);
-    };
+    reader.onload = (event) => setImageBase64(event.target.result);
     reader.readAsDataURL(file);
-  }
+    e.target.value = null;
+  };
 
-  function clearImage() {
-    setImagePreview(null);
-    setImageBase64(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }
+  const removeImage = () => setImageBase64(null);
 
   const send = useCallback(async (promptOverride) => {
     const text = (promptOverride || input).trim();
-    if (!text || isAiThinking) return;
+    if ((!text && !imageBase64) || isAiThinking) return;
     if (!selectedModel) {
       toast.error('No AI model. Run: ollama pull llama3');
       return;
     }
 
-    const currentImage = imagePreview;
-    const currentBase64 = imageBase64;
     setInput('');
-    clearImage();
+    const sentImage = imageBase64;
+    setImageBase64(null); // Clear preview
+
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-    addMessage({ role: 'user', content: text, imagePreview: currentImage });
-    addMessage({ role: 'assistant', content: '', streaming: true, agents: [] });
+    addMessage({ role: 'user', content: text || 'Analyze this image', imageBase64: sentImage });
+    addMessage({ role: 'assistant', content: '', streaming: true });
     setIsAiThinking(true);
-    setAiThinkingSteps([]);
-    clearAgents();
 
     const ctrl = new AbortController();
     setAbortCtrl(ctrl);
     let filesChanged = [];
-    let agentMap = {};
 
     streamAI({
       projectId,
       messages: [{ role: 'user', content: text }],
+      imageBase64: sentImage,
       model: selectedModel,
-      imageBase64: currentBase64,
       signal: ctrl.signal,
       onFile: async ({ path: fp }) => {
         if (!filesChanged.includes(fp)) filesChanged.push(fp);
-        addAiAction({ type: 'file', path: fp, message: `Created: ${fp}` });
-        try { await onRefreshTree?.(); } catch {}
-      },
-      onAgentStatus: (data) => {
-        agentMap[data.id] = data;
-        const agentList = Object.values(agentMap);
-        updateLastMessage({ agents: agentList });
+        try { await onRefreshTree?.(); } catch { }
       },
       onChunk: (_, full) => {
-        const clean = full
-          .replace(/<file path="[^"]*">[\s\S]*?<\/file>/g, '')
-          .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
-          .trim();
-        updateLastMessage({ content: clean, streaming: true });
+        updateLastMessage({ content: full, streaming: true });
       },
-      onDone: (data) => {
-        // Mark all agents complete
-        for (const key in agentMap) {
-          agentMap[key] = { ...agentMap[key], status: 'complete' };
-        }
-        updateLastMessage({
-          streaming: false,
-          filesChanged: data?.filesChanged || filesChanged,
-          agents: Object.values(agentMap),
-          summary: data?.summary || [],
-        });
+      onDone: () => {
+        updateLastMessage({ streaming: false, filesChanged });
         setIsAiThinking(false);
         setAbortCtrl(null);
-        clearAgents();
-        const fc = data?.filesChanged || filesChanged;
-        if (fc.length > 0) {
-          toast.success(`${fc.length} file${fc.length > 1 ? 's' : ''} created`);
+        if (filesChanged.length > 0) {
+          toast.success(`✓ ${filesChanged.length} file(s) updated`);
           onRefreshTree?.();
         }
       },
       onError: (err) => {
-        updateLastMessage({ content: `Error: ${err.message}`, streaming: false });
+        updateLastMessage({ content: `⚠️ ${err.message}`, streaming: false });
         setIsAiThinking(false);
         setAbortCtrl(null);
-        clearAgents();
         toast.error(err.message);
       },
     });
-  }, [input, isAiThinking, selectedModel, projectId, imageBase64, imagePreview]);
+  }, [input, imageBase64, isAiThinking, selectedModel, projectId]);
 
   function stop() {
     abortCtrl?.abort();
     setAbortCtrl(null);
     updateLastMessage({ streaming: false });
     setIsAiThinking(false);
-    clearAgents();
   }
 
   function handleKey(e) {
@@ -340,136 +237,100 @@ export default function ChatPanel({ projectId, onRefreshTree }) {
   const showQuick = messages.length === 0;
 
   return (
-    <div style={{
-      height: '100%', display: 'flex', flexDirection: 'column',
-      overflow: 'hidden', background: 'var(--surface)', borderLeft: '1px solid var(--border)',
-    }}>
+    <div className="h-full flex flex-col bg-[#0a0a0f] relative font-sans">
+      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,rgba(0,240,255,0.02))] pointer-events-none" />
+
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-        borderBottom: '1px solid var(--border)', flexShrink: 0,
-      }}>
-        <div style={{
-          width: 24, height: 24, borderRadius: 8,
-          background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 10, fontWeight: 800, color: '#fff',
-        }}>AI</div>
-        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>AI Assistant</span>
-        {selectedModel && (
-          <span className="tag tag-indigo" style={{ fontSize: 10 }}>
-            {selectedModel.split(':')[0]}
-          </span>
-        )}
-        <div style={{ flex: 1 }} />
+      <div className="flex items-center gap-3 p-4 border-b border-white/10 z-10 bg-[#0a0a0f]/80 backdrop-blur">
+        <Activity size={18} className="text-[#00f0ff]" />
+        <span className="font-bold font-['Orbitron'] tracking-widest text-[#00f0ff] text-sm uppercase">Agent Swarm</span>
+        <div className="flex-1" />
         {messages.length > 0 && (
-          <button onClick={() => clearMessages(projectId)} className="btn-icon" style={{ width: 26, height: 26 }} title="Clear chat">
-            <Trash2 size={12} />
+          <button onClick={() => clearMessages(projectId)} className="p-1.5 text-gray-500 hover:text-[#ff003c] transition-colors rounded hover:bg-white/5" title="Clear chat">
+            <Trash2 size={16} />
           </button>
         )}
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+      <div className="flex-1 overflow-y-auto p-4 z-10 custom-scrollbar">
         {showQuick ? (
-          <div>
-            <div style={{ textAlign: 'center', marginBottom: 20, paddingTop: 8 }}>
-              <div style={{
-                width: 52, height: 52, borderRadius: 18, margin: '0 auto 12px',
-                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24,
-              }}>🤖</div>
-              <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', marginBottom: 4 }}>
-                {currentProject?.name ? `Working on: ${currentProject.name}` : 'MobCloud AI'}
-              </p>
-              <p style={{ color: 'var(--muted)', fontSize: 12 }}>
-                Describe what you want to build and I'll generate the complete code
-              </p>
+          <div className="flex flex-col animate-[fadeUp_0.4s_ease-out]">
+            <div className="text-center my-8">
+              <div className="w-16 h-16 rounded-2xl mx-auto mb-4 bg-gradient-to-br from-[#00f0ff] to-[#7000ff] shadow-[0_0_30px_rgba(0,240,255,0.3)] flex items-center justify-center text-white">
+                <Bot size={32} />
+              </div>
+              <h2 className="font-['Orbitron'] text-xl font-black text-white tracking-widest">{currentProject?.name ? `Project: ${currentProject.name}` : 'Ready for inputs'}</h2>
+              <p className="text-xs text-[#00f0ff] font-mono tracking-widest uppercase mt-2">Awaiting Directive</p>
             </div>
 
-            <div style={{ display: 'flex', gap: 4, marginBottom: 8, overflowX: 'auto' }} className="no-scrollbar">
+            <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar py-2">
               {QUICK_CATEGORIES.map((cat, i) => (
-                <button key={cat.label} onClick={() => setActiveCat(i)} style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                  cursor: 'pointer', border: 'none', whiteSpace: 'nowrap',
-                  background: activeCat === i ? 'rgba(99,102,241,0.2)' : 'var(--surface2)',
-                  color: activeCat === i ? '#818cf8' : 'var(--muted)',
-                  transition: 'all 0.15s',
-                }}>
-                  <cat.icon size={11} /> {cat.label}
+                <button
+                  key={cat.label}
+                  onClick={() => setActiveCat(i)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono tracking-wider whitespace-nowrap transition-colors border ${activeCat === i
+                      ? 'bg-[#00f0ff]/10 text-[#00f0ff] border-[#00f0ff]/30 shadow-[0_0_10px_rgba(0,240,255,0.1)]'
+                      : 'bg-white/5 text-gray-400 border-transparent hover:bg-white/10'
+                    }`}
+                >
+                  <cat.icon size={12} /> {cat.label}
                 </button>
               ))}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="flex flex-col gap-2">
               {QUICK_CATEGORIES[activeCat].prompts.map((p, i) => (
-                <button key={i} onClick={() => send(p)} style={{
-                  textAlign: 'left', padding: '9px 12px', borderRadius: 10,
-                  fontSize: 12, cursor: 'pointer', lineHeight: 1.5,
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  color: 'var(--text2)', transition: 'all 0.15s',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)'; e.currentTarget.style.color = 'var(--text)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)'; }}>
-                  <span>{p}</span>
-                  <ChevronRight size={12} style={{ flexShrink: 0, opacity: 0.4 }} />
+                <button
+                  key={i}
+                  onClick={() => send(p)}
+                  className="text-left p-3 rounded-xl text-sm leading-relaxed bg-[#12121a] border border-white/5 text-gray-400 hover:text-white hover:border-[#00f0ff]/30 hover:shadow-[0_4px_20px_rgba(0,240,255,0.05)] transition-all flex items-center gap-3 group"
+                >
+                  <span className="flex-1">{p}</span>
+                  <ChevronRight size={14} className="text-gray-600 group-hover:text-[#00f0ff] transition-colors" />
                 </button>
               ))}
             </div>
           </div>
         ) : (
-          messages.map((msg, i) =>
-            msg.role === 'user'
-              ? <UserMsg key={msg.id || i} msg={msg} />
-              : <AIMsg key={msg.id || i} msg={msg} />
-          )
+          messages.map((msg, i) => msg.role === 'user' ? <UserMsg key={msg.id || i} msg={msg} /> : <AIMsg key={msg.id || i} msg={msg} />)
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* No model warning */}
-      {!selectedModel && (
-        <div style={{ padding: '7px 12px', background: 'rgba(245,158,11,0.08)', borderTop: '1px solid rgba(245,158,11,0.15)' }}>
-          <p style={{ fontSize: 11, color: '#f59e0b', textAlign: 'center' }}>
-            No model connected. Run <code>ollama serve</code> then <code>ollama pull llama3</code>
-          </p>
-        </div>
-      )}
+      {/* Input Area */}
+      <div className="p-4 border-t border-white/10 bg-[#0a0a0f] z-10 shrink-0">
 
-      {/* Image preview */}
-      {imagePreview && (
-        <div style={{ padding: '6px 12px 0', flexShrink: 0 }}>
-          <div style={{
-            position: 'relative', display: 'inline-block', borderRadius: 8, overflow: 'hidden',
-            border: '1px solid var(--border)',
-          }}>
-            <img src={imagePreview} alt="Upload preview" style={{ height: 60, borderRadius: 8 }} />
-            <button onClick={clearImage} style={{
-              position: 'absolute', top: 2, right: 2, width: 18, height: 18,
-              borderRadius: '50%', border: 'none', cursor: 'pointer',
-              background: 'rgba(0,0,0,0.7)', color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <X size={10} />
-            </button>
+        {/* Image Preview */}
+        {imageBase64 && (
+          <div className="mb-3 relative inline-block">
+            <div className="relative rounded-lg overflow-hidden border border-[#00f0ff]/30 shadow-[0_0_15px_rgba(0,240,255,0.15)] inline-block">
+              <img src={imageBase64} alt="Preview" className="h-20 w-auto object-cover" />
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                <button onClick={removeImage} className="bg-red-500/80 text-white rounded-full p-1 hover:bg-red-500 transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Input */}
-      <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-          {/* Image upload button */}
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+        <div className="flex items-end gap-2 bg-[#12121a] border border-white/10 focus-within:border-[#00f0ff]/50 focus-within:shadow-[0_0_15px_rgba(0,240,255,0.1)] rounded-xl p-2 transition-all">
+
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleImageUpload}
+          />
+
           <button
+            className="p-2 text-gray-500 hover:text-[#00f0ff] transition-colors rounded-lg shrink-0 mb-0.5"
             onClick={() => fileInputRef.current?.click()}
-            className="btn-icon"
-            style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10 }}
-            title="Upload image"
+            title="Upload Image/Screenshot"
           >
-            <ImagePlus size={15} />
+            <ImageIcon size={20} />
           </button>
 
           <textarea
@@ -480,47 +341,45 @@ export default function ChatPanel({ projectId, onRefreshTree }) {
             onKeyDown={handleKey}
             onInput={e => {
               e.target.style.height = 'auto';
-              e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+              e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
             }}
-            placeholder={selectedModel ? 'Describe your website... (Enter to send)' : 'Connect Ollama first...'}
-            disabled={!selectedModel}
+            placeholder="Awaiting directive... (Shift+Enter for new line)"
+            disabled={!selectedModel || isAiThinking}
             rows={1}
-            style={{
-              flex: 1, resize: 'none', padding: '9px 12px', borderRadius: 10,
-              border: '1px solid var(--border)', background: 'var(--surface2)',
-              color: 'var(--text)', fontSize: 13, fontFamily: 'inherit',
-              outline: 'none', lineHeight: 1.5, maxHeight: 120,
-              transition: 'border-color 0.2s',
-            }}
-            onFocus={e => e.target.style.borderColor = 'var(--accent)'}
-            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            className="flex-1 resize-none bg-transparent text-white text-sm font-sans outline-none leading-relaxed py-2 custom-scrollbar max-h-[150px] placeholder-gray-600 min-h-[40px]"
           />
 
           {isAiThinking ? (
-            <button onClick={stop} style={{
-              width: 38, height: 38, borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: 'rgba(244,63,94,0.15)', color: '#f43f5e', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <StopCircle size={16} />
+            <button onClick={stop} className="p-2.5 bg-[#ff003c]/20 text-[#ff003c] hover:bg-[#ff003c]/30 rounded-lg transition-colors flex items-center justify-center shrink-0 mb-0.5">
+              <StopCircle size={18} />
             </button>
           ) : (
-            <button onClick={() => send()} disabled={!input.trim() || !selectedModel} style={{
-              width: 38, height: 38, borderRadius: 10, border: 'none', flexShrink: 0,
-              background: (input.trim() && selectedModel) ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'var(--surface2)',
-              color: (input.trim() && selectedModel) ? '#fff' : 'var(--muted)',
-              cursor: (input.trim() && selectedModel) ? 'pointer' : 'not-allowed',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.2s',
-            }}>
-              <Send size={15} />
+            <button
+              onClick={() => send()}
+              disabled={(!input.trim() && !imageBase64) || !selectedModel}
+              className={`p-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 mb-0.5 ${(input.trim() || imageBase64) && selectedModel
+                  ? 'bg-gradient-to-br from-[#00f0ff] to-[#7000ff] text-white shadow-[0_0_15px_rgba(0,240,255,0.4)]'
+                  : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                }`}
+            >
+              <Send size={18} />
             </button>
           )}
         </div>
-        <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 5, textAlign: 'center' }}>
-          Ctrl+K to focus · Enter to send · Shift+Enter for new line
-        </p>
       </div>
+
+      {/* Required CSS Animations inserted locally */}
+      <style>{`
+        @keyframes slideDown {
+          0% { transform: translateY(-30px); opacity: 0; }
+          50% { opacity: 1; }
+          100% { transform: translateY(100px); opacity: 0; }
+        }
+        .custom-markdown p { margin-bottom: 0.8em; }
+        .custom-markdown strong { color: #fff; font-weight: 700; }
+        .custom-markdown ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.8em; }
+        .custom-markdown li { margin-bottom: 0.3em; }
+      `}</style>
     </div>
   );
 }

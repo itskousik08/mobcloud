@@ -69,16 +69,11 @@ export const useAppStore = create(
       setPreviewUrl: (url) => set({ previewUrl: url }),
       setPreviewMode: (mode) => set({ previewMode: mode }),
 
-      // ── Workspace View Mode ────────────────────────
-      centerView: 'preview', // 'preview' | 'code'
-      setCenterView: (v) => set({ centerView: v }),
-
       // ── Chat / AI ──────────────────────────────────
       chatMessages: {},
       isAiThinking: false,
       aiThinkingSteps: [],
       aiActions: [],
-      activeAgents: [], // multi-agent progress tracking
 
       getMessages: (projectId) => {
         return get().chatMessages[projectId] || [];
@@ -112,18 +107,6 @@ export const useAppStore = create(
         aiActions: [...s.aiActions.slice(-50), { ...action, time: Date.now() }]
       })),
 
-      // ── Agent system ───────────────────────────────
-      setActiveAgents: (agents) => set({ activeAgents: agents }),
-      addActiveAgent: (agent) => set(s => ({
-        activeAgents: [...s.activeAgents, { ...agent, startTime: Date.now() }]
-      })),
-      updateAgent: (agentId, updates) => set(s => ({
-        activeAgents: s.activeAgents.map(a =>
-          a.id === agentId ? { ...a, ...updates } : a
-        )
-      })),
-      clearAgents: () => set({ activeAgents: [] }),
-
       // ── Panel visibility ───────────────────────────
       showExplorer: true,
       showPreview: true,
@@ -148,7 +131,7 @@ export const useAppStore = create(
       clearNotifications: () => set({ notifications: [] }),
     }),
     {
-      name: 'mobcloud-store-v5',
+      name: 'mobcloud-store-v4',
       partialize: (s) => ({
         theme: s.theme,
         personality: s.personality,
