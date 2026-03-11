@@ -116,7 +116,7 @@ cd mobcloud
 
 If using git:
 ```bash
-git clone <your-repo-url> mobcloud
+git clone https://github.com/itskousik08/mobcloud.git
 cd mobcloud
 ```
 
